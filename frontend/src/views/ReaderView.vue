@@ -505,10 +505,16 @@
                     v-if="paragraphTranslations[paragraphKey(store.selectedArticle!.id, idx)]?.text && paragraphTranslations[paragraphKey(store.selectedArticle!.id, idx)]!.mode === 'translation'"
                     class="article-block-content article-block-translated"
                   >
-                    <div class="translation-badge">
+                    <button
+                      type="button"
+                      class="translation-badge translation-badge-button"
+                      title="点击恢复原文"
+                      @click.stop="restoreParagraphOriginal(store.selectedArticle!.id, idx)"
+                    >
                       <el-icon><Switch /></el-icon>
                       <span>译文</span>
-                    </div>
+                      <span class="translation-badge-hint">恢复原文</span>
+                    </button>
                     <div v-html="renderedParagraphTranslation(paragraphTranslations[paragraphKey(store.selectedArticle!.id, idx)]!.text)"></div>
                   </div>
                   <!-- 双语对照模式：原文 + 译文两行 -->
@@ -522,7 +528,15 @@
                     </div>
                     <div class="comparison-divider"></div>
                     <div class="comparison-row">
-                      <span class="comparison-label translation-label">译文</span>
+                      <button
+                        type="button"
+                        class="comparison-label translation-label translation-label-button"
+                        title="点击恢复原文"
+                        @click.stop="restoreParagraphOriginal(store.selectedArticle!.id, idx)"
+                      >
+                        译文
+                        <span class="translation-badge-hint">恢复原文</span>
+                      </button>
                       <div class="para-translation article-body" v-html="renderedParagraphTranslation(paragraphTranslations[paragraphKey(store.selectedArticle!.id, idx)]!.text)"></div>
                     </div>
                   </div>
@@ -2348,6 +2362,13 @@ function clearAllTranslations() {
   }
   paragraphTranslations.value = next
   ElMessage.success('已清除全部翻译')
+}
+
+function restoreParagraphOriginal(articleId: number, index: number) {
+  const key = paragraphKey(articleId, index)
+  const next = { ...paragraphTranslations.value }
+  delete next[key]
+  paragraphTranslations.value = next
 }
 
 // 处理翻译下拉菜单命令
@@ -4292,6 +4313,27 @@ async function exportNote() {
 
 .translation-badge .el-icon {
   font-size: 13px;
+}
+
+.translation-badge-button,
+.translation-label-button {
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.translation-badge-button:hover,
+.translation-label-button:hover {
+  color: color-mix(in srgb, var(--theme-accent) 92%, var(--app-text) 8%);
+  background: color-mix(in srgb, var(--theme-accent) 16%, var(--app-surface) 84%);
+  border-color: color-mix(in srgb, var(--theme-accent) 45%, var(--app-border) 55%);
+}
+
+.translation-badge-hint {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  opacity: 0.68;
 }
 
 /* ---- 双语对照模式：卡片式分隔 ---- */
