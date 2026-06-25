@@ -2096,10 +2096,11 @@ function parseHtmlBlocks(html: string, markdownFallback?: string): { html: strin
       // 图片段：直接渲染，不可翻译
       result.push({ html: segment.trim(), text: '', translatable: false, isHtml: true })
     } else {
-      // 文本段：可翻译，优先用 markdown 匹配的对应文本
+      // 文本段：可翻译，保留完整 HTML 原文发送给翻译 agent
       const plainText = htmlToPlainText(segment)
       if (!plainText.trim()) continue
-      result.push({ html: segment.trim(), text: plainText, translatable: true, isHtml: true })
+      // 用原始 HTML（保留链接/粗体/排版）作为翻译输入
+      result.push({ html: segment.trim(), text: segment.trim(), translatable: true, isHtml: true })
     }
   }
   return result.length ? result : [{ html, text: mdText, translatable: !!mdText, isHtml: true }]
@@ -2339,9 +2340,11 @@ function paragraphKey(articleId: number, index: number) {
   return `${articleId}:${index}`
 }
 
-// 渲染单段译文为 HTML
+// 渲染单段译文为 HTML（HTML 保真模式直接返回原文，否则 markdown 转 HTML）
 function renderedParagraphTranslation(text: string): string {
   if (!text) return ''
+  // 译文含 HTML 标签则直接渲染
+  if (looksLikeHtml(text)) return text
   return markdownToHtml(text)
 }
 
@@ -2359,7 +2362,7 @@ async function translateParagraph(articleId: number, index: number, sourceText: 
       text: sourceText,
       target_language: translationLanguage.value,
       source_language: 'auto',
-      preserve_markdown: true,
+      preserve_html: true,
     })
     paragraphTranslations.value = {
       ...paragraphTranslations.value,
