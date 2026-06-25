@@ -943,11 +943,19 @@ const articleRenderedBlocks = computed(() => {
   if (!article) return [] as { html: string; text: string; translatable: boolean; isHtml: boolean }[]
   const primaryContent = article.cleaned_html?.trim() || article.raw_html?.trim() || ''
   const hasImages = /<img[^>]+src=/i.test(primaryContent)
-  // 原始 HTML 内容有图片或非 markdown：无法可靠分块，退化为单块整体渲染
-  if (primaryContent && (!article.cleaned_markdown?.trim() || hasImages)) {
+
+  // 有图片的 HTML：从 HTML 中提取文本段和图片段混合排列
+  if (primaryContent && hasImages) {
+    return parseHtmlBlocks(primaryContent, article.cleaned_markdown?.trim())
+  }
+
+  // 无图片 HTML：没有 markdown 时退化为单块
+  if (primaryContent && !article.cleaned_markdown?.trim()) {
     const text = htmlToPlainText(primaryContent) || article.summary?.trim() || ''
     return [{ html: primaryContent, text, translatable: !!text, isHtml: true }]
   }
+
+  // markdown 路径
   const md = article.cleaned_markdown?.trim() || article.summary?.trim() || ''
   if (!md) return [{ html: '<p>这篇文章暂时没有可展示的正文内容。</p>', text: '', translatable: false, isHtml: false }]
   const normalized = md.replace(/\r\n/g, '\n').trim()
@@ -2072,6 +2080,29 @@ function renderMarkdownBlock(block: string): string {
   }
 
   return `<p>${lines.map((line) => renderMarkdownInline(line)).join('<br />')}</p>`
+}
+
+// 从含图片的 HTML 中提取混合块：图片段单独展示，文本段可翻译
+function parseHtmlBlocks(html: string, markdownFallback?: string): { html: string; text: string; translatable: boolean; isHtml: boolean }[] {
+  // 用 <img> 标签切分 HTML
+  const imgRegex = /(<img[^>]+src="[^"]+"[^>]*\/?>)/gi
+  const segments = html.split(imgRegex)
+  const result: { html: string; text: string; translatable: boolean; isHtml: boolean }[] = []
+  const mdText = markdownFallback || htmlToPlainText(html)
+
+  for (const segment of segments) {
+    if (!segment.trim()) continue
+    if (/^<img[^>]+>/i.test(segment.trim())) {
+      // 图片段：直接渲染，不可翻译
+      result.push({ html: segment.trim(), text: '', translatable: false, isHtml: true })
+    } else {
+      // 文本段：可翻译，优先用 markdown 匹配的对应文本
+      const plainText = htmlToPlainText(segment)
+      if (!plainText.trim()) continue
+      result.push({ html: segment.trim(), text: plainText, translatable: true, isHtml: true })
+    }
+  }
+  return result.length ? result : [{ html, text: mdText, translatable: !!mdText, isHtml: true }]
 }
 
 // 简易 Markdown 块解析：按双换行切块，识别代码块/ hr 不可翻译
